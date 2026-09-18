@@ -40,9 +40,9 @@ echo -e "[${B}INFO${W}] Generate mkinitcpio hooks"
 
 if [[ "${luks}" == "true" ]] ; then
     # https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LVM_on_LUKS
-    mkinitcpio_hooks="base udev autodetect keyboard keymap modconf block encrypt lvm2 filesystems keyboard fsck"
+    mkinitcpio_hooks="base systemd autodetect keyboard keymap modconf block encrypt lvm2 filesystems keyboard fsck"
 else
-    mkinitcpio_hooks="base udev autodetect keyboard keymap modconf block lvm2 filesystems keyboard fsck"
+    mkinitcpio_hooks="base systemd autodetect keyboard keymap modconf block lvm2 filesystems keyboard fsck"
 fi
 
 sed -i "s|^HOOKS=(.*)|HOOKS=(${mkinitcpio_hooks})|" /etc/mkinitcpio.conf
@@ -76,9 +76,9 @@ timeout 1" > /boot/loader/loader.conf
 uuid=$(blkid -s UUID -o value "${os_partition}")
 
 if [[ "${luks}" == "true" ]] ; then
-    boot_options="cryptdevice=UUID=${uuid}:${lvm_name} root=/dev/mapper/SYSTEM-root rw"
+    boot_options="rd.luks.name=UUID=${uuid}:${lvm_name} root=/dev/mapper/SYSTEM-root rw acpi_osi=\"Connectivity\ vics\" pcie_aspm=force"
 else
-    boot_options="root=/dev/mapper/SYSTEM-root rw"
+    boot_options="root=/dev/mapper/SYSTEM-root rw acpi_osi=\"Connectivity\ vics\" pcie_aspm=force"
 fi
 
 echo -e "title Arch Linux

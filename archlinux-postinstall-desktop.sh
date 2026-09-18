@@ -17,13 +17,6 @@ set -e
 # Desktop Post-install
 ################################################################################
 
-# Configure Keymap for GDM (desktop only)
-mkdir -p /etc/X11/xorg.conf.d
-echo -e "Section \"InputClass\"
-    Identifier \"system-keyboard\"
-    MatchIsKeyboard \"on\"
-    Option \"XkbLayout\" \"${keymap}\"
-EndSection" > /etc/X11/xorg.conf.d/00-keyboard.conf
 
 # Install all packages
 echo -e "[${B}INFO${W}] Install desktop ${Y}pacman${W} packages"
@@ -46,7 +39,6 @@ echo -e "[${B}INFO${W}] Enable systemctl services"
 systemctl enable gdm
 systemctl enable NetworkManager
 systemctl enable bluetooth
-systemctl enable nftables
 systemctl enable docker
 systemctl enable cups
 
