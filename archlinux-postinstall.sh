@@ -216,30 +216,6 @@ while true; do
     sleep 1
 done
 EOF
-
-echo "===== lid-monitor start $(date -Iseconds) =====" >>"$log"
-
-while true; do
-    if grep -q closed /proc/acpi/button/lid/*/state 2>/dev/null; then
-        state=closed
-    else
-        state=open
-    fi
-    if [ "$state" != "$prev" ]; then
-        echo "$(date -Iseconds) lid $state" >>"$log"
-        if [ "$state" = closed ]; then
-            /usr/bin/loginctl lock-sessions
-            blank_panel
-        else
-            unblank_panel
-        fi
-        prev=$state
-    elif [ "$state" = closed ]; then
-        blank_panel
-    fi
-    sleep 1
-done
-EOF
 chmod +x /usr/local/sbin/macbook-lid-monitor.sh
 cat > /etc/systemd/system/macbook-lid-monitor.service << 'EOF'
 [Unit]
