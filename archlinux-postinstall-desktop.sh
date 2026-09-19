@@ -19,15 +19,10 @@ setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 ################################################################################
 
 
-# Install all packages (GNOME; keep X.Org server out of the install)
+# Install all packages 
 echo -e "[${B}INFO${W}] Install desktop ${Y}pacman${W} packages"
-pacman -Sy --noconfirm --needed --color auto --ignore xorg-server --ignore xorg-server-common "${desktop_packages[@]}"
+pacman -Sy --noconfirm --needed --color auto  "${desktop_packages[@]}"
 
-# Drop X11 display server if a dependency pulled it in anyway
-if pacman -Qq xorg-server >/dev/null 2>&1 ; then
-    echo -e "[${B}INFO${W}] Removing ${Y}xorg-server${W} (Wayland-only GNOME)"
-    pacman -Rdd --noconfirm xorg-server xorg-server-common || true
-fi
 
 # Install yay
 echo -e "[${B}INFO${W}] Install ${Y}yay${W}"
