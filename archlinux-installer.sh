@@ -127,7 +127,11 @@ swapon /dev/SYSTEM/swap
 ################################################################################
 
 echo -e "[${B}INFO${W}] Install Arch Linux"
-pacstrap /mnt --color auto base base-devel linux linux-firmware intel-ucode efibootmgr lvm2
+pacstrap_packages=(base base-devel linux linux-firmware intel-ucode efibootmgr lvm2)
+if [[ "${luks}" == "true" ]] ; then
+  pacstrap_packages+=(cryptsetup)
+fi
+pacstrap /mnt --color auto "${pacstrap_packages[@]}"
 
 # Generate fstab
 echo -e "[${B}INFO${W}] Generate fstab"

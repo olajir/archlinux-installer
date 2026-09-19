@@ -1,12 +1,14 @@
 #!/bin/bash
 
+# Target: MacBookPro A1398 (Retina 15", Late 2013 / Mid 2014)
+
 # server or desktop
 install_type="desktop"
 
 # manual or auto
 install_mode="manual"
 
-# luks or no-luks
+# luks or no-luks (LVM inside LUKS)
 luks="true"
 
 if [[ "${luks}" == "true" ]] ; then
@@ -37,6 +39,8 @@ lv_home_size="100%FREE"
 
 # Configuration
 keymap="sv-latin1"
+# GNOME/xkb: Swedish Apple keyboard on MacBook
+xkb_layout="se+mac"
 hostname="MacBookPro-arch"
 timezone="Europe/Stockholm"
 locale="sv_SE"
@@ -44,15 +48,20 @@ username="ola"
 username_default_password="0laskol@"
 root_default_password="0lask0l@"
 
+# Kernel parameters for A1398 suspend/resume
+kernel_extra_params='acpi_osi=Darwin pcie_aspm=force'
+
 # Default packages
 declare -a default_packages=(
     "bash-completion"
+    "dkms"
     "git"
     "openssh"
     "vim"
     "wget"
     "linux-headers"
     "broadcom-wl-dkms"
+    "wireless_tools"
 )
 
 ################################################################################
@@ -83,7 +92,6 @@ declare -a desktop_packages=(
     "virtualbox-guest-utils"
     "virtualbox-host-modules-arch"
     "vlc"
-    "wireless_tools"
     "zip"
     "zsh"
 )

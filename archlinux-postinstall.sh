@@ -35,14 +35,30 @@ echo "LANG=${locale}.UTF-8" > /etc/locale.conf
 echo "KEYMAP=${keymap}" > /etc/vconsole.conf
 echo "${hostname}" > /etc/hostname
 
+# Broadcom wl (BCM4360 on MacBookPro A1398) — avoid conflict with in-kernel brcm drivers
+echo -e "[${B}INFO${W}] Configure Broadcom wireless (wl)"
+mkdir -p /etc/modprobe.d /etc/modules-load.d
+cat > /etc/modprobe.d/broadcom-wl.conf << 'EOF'
+blacklist b43
+blacklist b43legacy
+blacklist ssb
+blacklist bcm43xx
+blacklist brcm80211
+blacklist brcmfmac
+blacklist brcmsmac
+blacklist bcma
+EOF
+echo "wl" > /etc/modules-load.d/broadcom-wl.conf
+
 # Configure mkinitcpio hooks
 echo -e "[${B}INFO${W}] Generate mkinitcpio hooks"
 
+# systemd initramfs: sd-encrypt + sd-vconsole (not the busybox encrypt/keymap hooks)
+# https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LVM_on_LUKS
 if [[ "${luks}" == "true" ]] ; then
-    # https://wiki.archlinux.org/title/Dm-crypt/Encrypting_an_entire_system#LVM_on_LUKS
-    mkinitcpio_hooks="base systemd autodetect keyboard keymap modconf block encrypt lvm2 filesystems keyboard fsck"
+    mkinitcpio_hooks="base systemd autodetect keyboard sd-vconsole modconf kms block sd-encrypt lvm2 filesystems fsck"
 else
-    mkinitcpio_hooks="base systemd autodetect keyboard keymap modconf block lvm2 filesystems keyboard fsck"
+    mkinitcpio_hooks="base systemd autodetect keyboard sd-vconsole modconf kms block lvm2 filesystems fsck"
 fi
 
 sed -i "s|^HOOKS=(.*)|HOOKS=(${mkinitcpio_hooks})|" /etc/mkinitcpio.conf
@@ -76,16 +92,18 @@ timeout 1" > /boot/loader/loader.conf
 uuid=$(blkid -s UUID -o value "${os_partition}")
 
 if [[ "${luks}" == "true" ]] ; then
-    boot_options="rd.luks.name=UUID=${uuid}:${lvm_name} root=/dev/mapper/SYSTEM-root rw acpi_osi=\"Connectivity\ vics\" pcie_aspm=force"
+    boot_options="rd.luks.name=${uuid}=${lvm_name} root=/dev/mapper/SYSTEM-root rw ${kernel_extra_params}"
 else
-    boot_options="root=/dev/mapper/SYSTEM-root rw acpi_osi=\"Connectivity\ vics\" pcie_aspm=force"
+    boot_options="root=/dev/mapper/SYSTEM-root rw ${kernel_extra_params}"
 fi
 
-echo -e "title Arch Linux
+cat > /boot/loader/entries/arch.conf << EOF
+title Arch Linux
 linux /vmlinuz-linux
 initrd /intel-ucode.img
 initrd /initramfs-linux.img
-${boot_options}" > /boot/loader/entries/arch.conf
+options ${boot_options}
+EOF
 
 mkdir -p /etc/pacman.d/hooks
 
