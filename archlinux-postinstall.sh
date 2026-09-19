@@ -53,6 +53,117 @@ blacklist bcma
 EOF
 echo "wl" > /etc/modules-load.d/broadcom-wl.conf
 
+# SMC / Apple keyboard (backlight is smc::kbd_backlight via applesmc)
+cat > /etc/modules-load.d/macbook.conf << 'EOF'
+applesmc
+hid_apple
+apple-gmux
+i915
+EOF
+cat > /etc/modprobe.d/hid-apple.conf << 'EOF'
+options hid_apple fnmode=1 iso_layout=1
+EOF
+# 11,3 discrete NVIDIA must stay off or S3 never returns
+cat > /etc/modprobe.d/apple-discrete-gpu.conf << 'EOF'
+blacklist nouveau
+blacklist nvidia
+blacklist nvidia_drm
+options nouveau modeset=0
+EOF
+# Restore keyboard backlight after applesmc binds
+cat > /etc/udev/rules.d/90-smc-kbd-backlight.rules << 'EOF'
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="smc::kbd_backlight", ATTR{brightness}="128"
+EOF
+
+cat > /etc/modprobe.d/i915.conf << 'EOF'
+options i915 enable_psr=0 enable_dc=0
+EOF
+
+# Panel backlight (gmux/intel) is not restored after S3; keyboard SMC is.
+# Do not unload wl or toggle vgaswitcheroo here — that can freeze S3 so
+# even the power button does not wake the machine.
+cat > /usr/local/sbin/macbook-restore-display.sh << 'EOF'
+#!/bin/sh
+setpci -H1 -s 00:01.00 BRIDGE_CONTROL=0 >/dev/null 2>&1 || true
+
+echo 0 > /sys/class/graphics/fb0/blank 2>/dev/null || true
+
+for d in /sys/class/backlight/*; do
+    [ -e "$d/brightness" ] || continue
+    echo 0 > "$d/bl_power" 2>/dev/null || true
+    saved="/run/macbook-backlight/$(basename "$d")"
+    if [ -f "$saved" ]; then
+        cat "$saved" > "$d/brightness" 2>/dev/null || true
+    elif [ -e "$d/max_brightness" ]; then
+        cat "$d/max_brightness" > "$d/brightness" 2>/dev/null || true
+    fi
+done
+
+if [ -e /sys/class/leds/smc::kbd_backlight/brightness ]; then
+    echo 128 > /sys/class/leds/smc::kbd_backlight/brightness || true
+fi
+EOF
+chmod +x /usr/local/sbin/macbook-restore-display.sh
+
+# Local sleep hooks belong in /etc, never in /usr/lib (that path must be a directory).
+if [ -f /usr/lib/systemd/system-sleep ]; then
+    rm -f /usr/lib/systemd/system-sleep
+fi
+mkdir -p /usr/lib/systemd/system-sleep /etc/systemd/system-sleep
+cat > /etc/systemd/system-sleep/macbook-suspend << 'EOF'
+#!/bin/sh
+save_dir=/run/macbook-backlight
+case "$1" in
+    pre)
+        mkdir -p "$save_dir"
+        for d in /sys/class/backlight/*; do
+            [ -e "$d/brightness" ] || continue
+            cat "$d/brightness" > "$save_dir/$(basename "$d")" 2>/dev/null || true
+        done
+        ;;
+    post)
+        sleep 1
+        /usr/local/sbin/macbook-restore-display.sh || true
+        ;;
+esac
+EOF
+chmod +x /etc/systemd/system-sleep/macbook-suspend
+
+mkdir -p /etc/systemd/sleep.conf.d
+cat > /etc/systemd/sleep.conf.d/macbook.conf << 'EOF'
+[Sleep]
+AllowSuspend=yes
+SuspendState=mem
+MemorySleepMode=deep
+EOF
+
+# Power off dGPU (vga_switcheroo) and unstick the 01:00 bridge for gmux backlight.
+cat > /usr/local/sbin/macbook-gpu.sh << 'EOF'
+#!/bin/sh
+setpci -v -H1 -s 00:01.00 BRIDGE_CONTROL=0 >/dev/null 2>&1 || true
+if [ ! -e /sys/kernel/debug/vgaswitcheroo/switch ]; then
+    mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+fi
+if [ -e /sys/kernel/debug/vgaswitcheroo/switch ]; then
+    echo OFF > /sys/kernel/debug/vgaswitcheroo/switch || true
+fi
+EOF
+chmod +x /usr/local/sbin/macbook-gpu.sh
+cat > /etc/systemd/system/macbook-gpu.service << 'EOF'
+[Unit]
+Description=MacBook A1398: disable discrete GPU, fix gmux backlight
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/macbook-gpu.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable macbook-gpu.service
+
 # Configure mkinitcpio hooks
 echo -e "[${B}INFO${W}] Generate mkinitcpio hooks"
 
@@ -65,6 +176,7 @@ else
 fi
 
 sed -i "s|^HOOKS=(.*)|HOOKS=(${mkinitcpio_hooks})|" /etc/mkinitcpio.conf
+sed -i "s|^MODULES=(.*)|MODULES=(applesmc hid_apple apple-gmux i915)|" /etc/mkinitcpio.conf
 mkinitcpio -P
 
 # Create user
@@ -91,7 +203,7 @@ echo -e "[${B}INFO${W}] Install & configure bootloader"
 bootctl install
 
 echo "default arch
-timeout 1" > /boot/loader/loader.conf
+timeout 8" > /boot/loader/loader.conf
 
 # shellcheck disable=SC2154
 uuid=$(blkid -s UUID -o value "${os_partition}")

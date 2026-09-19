@@ -36,7 +36,7 @@ sudo -u ${username} makepkg -si --noconfirm
 echo -e "[${B}INFO${W}] Install ${Y}AUR${W} packages"
 sudo -u ${username} yay -Sy --noconfirm --color auto "${aur_packages[@]}"
 
-# GDM: Wayland GNOME only (no X11 session)
+# GDM: prefer GNOME on Wayland (Xorg session remains available)
 echo -e "[${B}INFO${W}] Configure GDM for Wayland"
 if [[ -f /etc/gdm/custom.conf ]] ; then
     sed -i 's/^#WaylandEnable=.*/WaylandEnable=true/' /etc/gdm/custom.conf
@@ -56,16 +56,9 @@ DefaultSession=gnome.desktop
 EOF
 fi
 
-if [[ -d /usr/share/xsessions ]] ; then
-    for session in /usr/share/xsessions/*.desktop ; do
-        [[ -f "${session}" ]] && printf '\nHidden=true\n' >> "${session}"
-    done
-fi
-
 cat >> /etc/environment << 'EOF'
 MOZ_ENABLE_WAYLAND=1
 ELECTRON_OZONE_PLATFORM_HINT=wayland
-QT_QPA_PLATFORM=wayland
 EOF
 
 # Start services

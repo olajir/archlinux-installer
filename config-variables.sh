@@ -48,8 +48,13 @@ username="ola"
 username_default_password="0laskol@"
 root_default_password="0lask0l@"
 
-# Kernel parameters for A1398 suspend/resume
-kernel_extra_params='acpi_osi=Darwin pcie_aspm=force'
+# A1398: no acpi_osi=* — Darwin blocks S3 resume, !Darwin breaks SMC (kbd backlight).
+# intel_iommu=off: IOMMU remap after S3 hangs many Apple Intel machines.
+# nouveau.modeset=0: 11,3 dGPU left powered prevents resume; use iGPU only.
+# i915.enable_psr/dc=0: panel power-saving that often leaves a black screen after S3.
+# Do not set enable_rc6=0/enable_fbc=0 — that combo stopped power-button wake.
+# hid_apple.fnmode=1: F5/F6 are keyboard-backlight keys (macOS layout).
+kernel_extra_params='intel_iommu=off mem_sleep_default=deep i915.enable_psr=0 i915.enable_dc=0 nouveau.modeset=0 acpi_backlight=vendor hid_apple.fnmode=1'
 
 # Default packages
 declare -a default_packages=(
@@ -57,6 +62,7 @@ declare -a default_packages=(
     "dkms"
     "git"
     "openssh"
+    "pciutils"
     "vim"
     "wget"
     "linux-headers"
