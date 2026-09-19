@@ -96,7 +96,6 @@ declare -a desktop_packages=(
     "usbutils"
     "virtualbox"
     "virtualbox-guest-utils"
-    "virtualbox-host-modules-arch"
     "vlc"
     "zip"
     "zsh"
@@ -106,8 +105,6 @@ declare -a desktop_packages=(
 declare -a aur_packages=(
     "spotify"
     "google-chrome"
-    "slack-desktop"
-    "visual-studio-code-bin"
 )
 
 ################################################################################
