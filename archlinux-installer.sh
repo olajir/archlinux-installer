@@ -158,13 +158,15 @@ echo -e "[${B}INFO${W}] Running commands from archlinux-postinstall.sh"
 
 echo -e "[${B}INFO${W}] Please run ${Y}cd /opt${W} and ${Y}./archlinux-postinstall.sh${W} to continue"
 
-# Run commands in chroot environment
-chroot /mnt /bin/bash <<EOF
+prepare_chroot_network /mnt
+
+# arch-chroot bind-mounts /proc /sys /dev /run and handles resolv.conf
+arch-chroot /mnt /bin/bash -c "
 export INSTALLER_LOGGING_TEE=1
-export INSTALLER_LOGFILE="/var/log/${installer_log_name}"
+export INSTALLER_LOGFILE=/var/log/${installer_log_name}
 cd /opt
 ./archlinux-postinstall.sh
-EOF
+"
 
 persist_installer_log /mnt
 if [[ -n "${installer_log_tail_pid:-}" ]]; then

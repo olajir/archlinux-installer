@@ -21,7 +21,7 @@ setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 
 # Install all packages (GNOME; keep X.Org server out of the install)
 echo -e "[${B}INFO${W}] Install desktop ${Y}pacman${W} packages"
-pacman -Sy --color auto --ignore xorg-server --ignore xorg-server-common "${desktop_packages[@]}"
+pacman -Sy --noconfirm --needed --color auto --ignore xorg-server --ignore xorg-server-common "${desktop_packages[@]}"
 
 # Drop X11 display server if a dependency pulled it in anyway
 if pacman -Qq xorg-server >/dev/null 2>&1 ; then
@@ -35,11 +35,11 @@ cd /tmp
 git clone https://aur.archlinux.org/yay.git
 cd yay
 chown -R ${username}: .
-sudo -u ${username} makepkg -si
+sudo -u ${username} makepkg -si --noconfirm
 
 # Install AUR Packages
 echo -e "[${B}INFO${W}] Install ${Y}AUR${W} packages"
-sudo -u ${username} yay -Sy --color auto "${aur_packages[@]}"
+sudo -u ${username} yay -Sy --noconfirm --color auto "${aur_packages[@]}"
 
 # GDM: Wayland GNOME only (no X11 session)
 echo -e "[${B}INFO${W}] Configure GDM for Wayland"

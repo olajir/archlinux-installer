@@ -183,3 +183,37 @@ setup_logging() {
     trap '_installer_on_error' ERR
     log_info "Logging to ${logfile} (xtrace in log file only)"
 }
+
+# Target /etc/resolv.conf is often a systemd-resolved symlink into /run, which is
+# empty in a raw chroot — pacman then cannot fetch core.db / extra.db.
+prepare_chroot_network() {
+    local root="${1:-/mnt}"
+
+    mkdir -p "${root}/etc"
+    rm -f "${root}/etc/resolv.conf"
+
+    if [[ -e /etc/resolv.conf ]] && grep -qE '^\s*nameserver' /etc/resolv.conf 2>/dev/null \
+        && ! grep -qE '^\s*nameserver\s+127\.' /etc/resolv.conf; then
+        cp -L /etc/resolv.conf "${root}/etc/resolv.conf"
+    else
+        printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\nnameserver 8.8.8.8\n' > "${root}/etc/resolv.conf"
+    fi
+    log_info "Wrote ${root}/etc/resolv.conf for chroot DNS"
+}
+
+ensure_pacman_network() {
+    if [[ ! -f /etc/resolv.conf ]] || ! grep -qE '^\s*nameserver' /etc/resolv.conf \
+        || grep -qE '^\s*nameserver\s+127\.' /etc/resolv.conf; then
+        log_info "Fixing DNS resolvers inside chroot"
+        printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\nnameserver 8.8.8.8\n' > /etc/resolv.conf
+    fi
+
+    if getent hosts geo.mirror.pkgbuild.com >/dev/null 2>&1 \
+        || getent hosts archlinux.org >/dev/null 2>&1; then
+        log_info "DNS lookup for Arch mirrors succeeded"
+        return 0
+    fi
+
+    log_error "No DNS in chroot (cannot resolve Arch mirrors). Live ISO needs working network."
+    return 1
+}

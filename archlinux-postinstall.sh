@@ -18,13 +18,15 @@ setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 # Post-install
 ################################################################################
 
+ensure_pacman_network
+
 # Install the latest archlinux-keyring
 echo -e "[${B}INFO${W}] Install the latest ${Y}archlinux-keyring${W} package"
-pacman -Sy --color auto archlinux-keyring
+pacman -Sy --noconfirm --color auto archlinux-keyring
 
 # Install all packages
 echo -e "[${B}INFO${W}] Install ${Y}pacman${W} packages"
-pacman -Sy --color auto "${default_packages[@]}"
+pacman -Sy --noconfirm --needed --color auto "${default_packages[@]}"
 
 # Configuration
 echo -e "[${B}INFO${W}] Configure system localization"
