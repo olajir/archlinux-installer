@@ -79,29 +79,45 @@ cat > /etc/modprobe.d/i915.conf << 'EOF'
 options i915 enable_psr=0 enable_dc=0
 EOF
 
-# Panel backlight (gmux/intel) is not restored after S3; keyboard SMC is.
-# Do not unload wl or toggle vgaswitcheroo here — that can freeze S3 so
-# even the power button does not wake the machine.
+# Restore panel after resume only (post S3). SSH dropping *during* suspend is
+# expected; NetworkManager is restarted here so SSH works again after wake.
 cat > /usr/local/sbin/macbook-restore-display.sh << 'EOF'
 #!/bin/sh
+log=/var/log/macbook-restore-display.log
+echo "===== $(date -Iseconds) restore-display =====" >>"$log"
+
+sleep 4
+
+/sbin/modprobe wl 2>>"$log" || true
+/usr/bin/systemctl try-restart NetworkManager.service 2>>"$log" || true
+
 setpci -H1 -s 00:01.00 BRIDGE_CONTROL=0 >/dev/null 2>&1 || true
 
 echo 0 > /sys/class/graphics/fb0/blank 2>/dev/null || true
+
+for conn in /sys/class/drm/card*-eDP*/ /sys/class/drm/card*-LVDS*/; do
+    [ -e "${conn}dpms" ] && echo On > "${conn}dpms" 2>/dev/null || true
+    echo "drm ${conn} dpms=$(cat "${conn}dpms" 2>/dev/null) status=$(cat "${conn}status" 2>/dev/null)" >>"$log"
+done
 
 for d in /sys/class/backlight/*; do
     [ -e "$d/brightness" ] || continue
     echo 0 > "$d/bl_power" 2>/dev/null || true
     saved="/run/macbook-backlight/$(basename "$d")"
-    if [ -f "$saved" ]; then
-        cat "$saved" > "$d/brightness" 2>/dev/null || true
-    elif [ -e "$d/max_brightness" ]; then
-        cat "$d/max_brightness" > "$d/brightness" 2>/dev/null || true
+    val=""
+    [ -f "$saved" ] && val=$(cat "$saved")
+    if [ -z "$val" ] || [ "$val" = "0" ]; then
+        [ -e "$d/max_brightness" ] && val=$(cat "$d/max_brightness")
     fi
+    [ -n "$val" ] && echo "$val" > "$d/brightness" 2>/dev/null || true
+    echo "backlight $(basename "$d") -> $val bl_power=$(cat "$d/bl_power" 2>/dev/null)" >>"$log"
 done
 
 if [ -e /sys/class/leds/smc::kbd_backlight/brightness ]; then
     echo 128 > /sys/class/leds/smc::kbd_backlight/brightness || true
 fi
+
+echo "done $(date -Iseconds)" >>"$log"
 EOF
 chmod +x /usr/local/sbin/macbook-restore-display.sh
 
@@ -122,20 +138,123 @@ case "$1" in
         done
         ;;
     post)
-        sleep 1
-        /usr/local/sbin/macbook-restore-display.sh || true
+        # Queue after systemd-sleep returns; do not block resume or S3 entry.
+        /usr/bin/systemctl --no-block start macbook-restore-display.service || true
         ;;
 esac
 EOF
 chmod +x /etc/systemd/system-sleep/macbook-suspend
 
-mkdir -p /etc/systemd/sleep.conf.d
-cat > /etc/systemd/sleep.conf.d/macbook.conf << 'EOF'
-[Sleep]
-AllowSuspend=yes
-SuspendState=mem
-MemorySleepMode=deep
+# Manual/queued oneshot only — not WantedBy=sleep.target (ExecStop ran on suspend entry).
+cat > /etc/systemd/system/macbook-restore-display.service << 'EOF'
+[Unit]
+Description=Restore MacBook panel after resume
+After=suspend.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=60
+ExecStart=/usr/local/sbin/macbook-restore-display.sh
 EOF
+# Not enabled at boot; started from the post-S3 sleep hook only.
+systemctl daemon-reload
+
+# A1398 cannot resume from systemd suspend (deep or s2idle): panel stays off,
+# often no TTY/SSH. Do not force MemorySleepMode. Lid/idle should blank or lock.
+rm -f /etc/systemd/sleep.conf.d/macbook.conf
+mkdir -p /etc/systemd/logind.conf.d
+cat > /etc/systemd/logind.conf.d/macbook.conf << 'EOF'
+[Login]
+HandleLidSwitch=lock
+HandleLidSwitchExternalPower=lock
+HandleLidSwitchDocked=ignore
+HandleSuspendKey=ignore
+HandleHibernateKey=ignore
+IdleAction=ignore
+EOF
+mkdir -p /var/log/journal
+
+# Lid: poll sysfs (acpid events are unreliable; GNOME restores backlight after lock).
+cat > /usr/local/sbin/macbook-lid-monitor.sh << 'EOF'
+#!/bin/sh
+log=/var/log/macbook-lid.log
+prev=
+
+gnome_screensaver() {
+    active=$1
+    loginctl list-sessions --no-legend 2>/dev/null | while read -r _sess uid user seat _; do
+        [ -n "$seat" ] || continue
+        [ -S "/run/user/${uid}/bus" ] || continue
+        runuser -u "$user" -- env \
+            XDG_RUNTIME_DIR="/run/user/${uid}" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+            gdbus call --session --dest org.gnome.ScreenSaver \
+            --object-path /org/gnome/ScreenSaver \
+            --method org.gnome.ScreenSaver.SetActive "$active" \
+            >>"$log" 2>&1 || true
+    done
+}
+
+echo "===== lid-monitor start $(date -Iseconds) =====" >>"$log"
+
+while true; do
+    if grep -q closed /proc/acpi/button/lid/*/state 2>/dev/null; then
+        state=closed
+    else
+        state=open
+    fi
+    if [ "$state" != "$prev" ]; then
+        echo "$(date -Iseconds) lid $state" >>"$log"
+        if [ "$state" = closed ]; then
+            /usr/bin/loginctl lock-sessions
+            gnome_screensaver true
+        else
+            gnome_screensaver false
+        fi
+        prev=$state
+    fi
+    sleep 1
+done
+EOF
+
+echo "===== lid-monitor start $(date -Iseconds) =====" >>"$log"
+
+while true; do
+    if grep -q closed /proc/acpi/button/lid/*/state 2>/dev/null; then
+        state=closed
+    else
+        state=open
+    fi
+    if [ "$state" != "$prev" ]; then
+        echo "$(date -Iseconds) lid $state" >>"$log"
+        if [ "$state" = closed ]; then
+            /usr/bin/loginctl lock-sessions
+            blank_panel
+        else
+            unblank_panel
+        fi
+        prev=$state
+    elif [ "$state" = closed ]; then
+        blank_panel
+    fi
+    sleep 1
+done
+EOF
+chmod +x /usr/local/sbin/macbook-lid-monitor.sh
+cat > /etc/systemd/system/macbook-lid-monitor.service << 'EOF'
+[Unit]
+Description=MacBook A1398: lock and blank panel while lid is closed
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/macbook-lid-monitor.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable macbook-lid-monitor.service
 
 # Power off dGPU (vga_switcheroo) and unstick the 01:00 bridge for gmux backlight.
 cat > /usr/local/sbin/macbook-gpu.sh << 'EOF'
@@ -202,8 +321,10 @@ set -x
 echo -e "[${B}INFO${W}] Install & configure bootloader"
 bootctl install
 
-echo "default arch
-timeout 8" > /boot/loader/loader.conf
+echo "default arch.conf
+timeout 8
+editor 1
+auto-firmware 0" > /boot/loader/loader.conf
 
 # shellcheck disable=SC2154
 uuid=$(blkid -s UUID -o value "${os_partition}")

@@ -51,10 +51,10 @@ root_default_password="0lask0l@"
 # A1398: no acpi_osi=* — Darwin blocks S3 resume, !Darwin breaks SMC (kbd backlight).
 # intel_iommu=off: IOMMU remap after S3 hangs many Apple Intel machines.
 # nouveau.modeset=0: 11,3 dGPU left powered prevents resume; use iGPU only.
-# i915.enable_psr/dc=0: panel power-saving that often leaves a black screen after S3.
-# Do not set enable_rc6=0/enable_fbc=0 — that combo stopped power-button wake.
-# hid_apple.fnmode=1: F5/F6 are keyboard-backlight keys (macOS layout).
-kernel_extra_params='intel_iommu=off mem_sleep_default=deep i915.enable_psr=0 i915.enable_dc=0 nouveau.modeset=0 acpi_backlight=vendor hid_apple.fnmode=1'
+# Do not set mem_sleep_default=deep or s2idle: neither resumes this panel.
+# No acpi_backlight=*: vendor emptied sysfs; native still has no intel_backlight
+# on this panel. Blanking is GNOME ScreenSaver (gdbus), not sysfs PWM.
+kernel_extra_params='intel_iommu=off i915.enable_psr=0 i915.enable_dc=0 nouveau.modeset=0 hid_apple.fnmode=1'
 
 # Default packages
 declare -a default_packages=(
@@ -89,6 +89,7 @@ declare -a desktop_packages=(
     "github-cli"
     "gnome"
     "gparted"
+    "acpid"
     "networkmanager"
     "power-profiles-daemon"
     "unrar"

@@ -68,6 +68,7 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable docker
 systemctl enable cups
+systemctl enable macbook-lid-monitor
 
 # Set Gnome default favorites apps
 mkdir -p /etc/dconf/profile
@@ -85,6 +86,11 @@ sources = [('xkb', '${xkb_layout}')]
 
 [org/gnome/desktop/interface]
 clock-format = '24h'
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type = 'blank'
+sleep-inactive-battery-type = 'blank'
+power-button-action = 'interactive'
 " > /etc/dconf/db/local.d/00-favorite-apps
 dconf update
 
