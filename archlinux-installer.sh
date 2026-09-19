@@ -12,6 +12,8 @@ set -e
 ################################################################################
 
 . config-variables.sh
+setup_logging "${installer_log_live}"
+trap 'persist_installer_log /mnt' EXIT
 
 ################################################################################
 # Installer
@@ -122,6 +124,12 @@ mount "${efi_partition}" /mnt/boot
 # Mount swap
 swapon /dev/SYSTEM/swap
 
+mkdir -p /mnt/var/log
+persist_installer_log /mnt
+# Keep the installed system's log in sync while the live ISO still owns stdout.
+tail -n 0 -f "${INSTALLER_LOGFILE}" >> "/mnt/var/log/${installer_log_name}" &
+installer_log_tail_pid=$!
+
 ################################################################################
 # Archlinux Installation
 ################################################################################
@@ -152,8 +160,16 @@ echo -e "[${B}INFO${W}] Please run ${Y}cd /opt${W} and ${Y}./archlinux-postinsta
 
 # Run commands in chroot environment
 chroot /mnt /bin/bash <<EOF
+export INSTALLER_LOGGING_TEE=1
+export INSTALLER_LOGFILE="/var/log/${installer_log_name}"
 cd /opt
 ./archlinux-postinstall.sh
 EOF
 
+persist_installer_log /mnt
+if [[ -n "${installer_log_tail_pid:-}" ]]; then
+  kill "${installer_log_tail_pid}" 2>/dev/null || true
+fi
+log_info "Log saved to /mnt/var/log/${installer_log_name}"
+sync
 reboot

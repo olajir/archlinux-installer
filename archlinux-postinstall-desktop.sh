@@ -12,6 +12,7 @@ set -e
 ################################################################################
 
 . config-variables.sh
+setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 
 ################################################################################
 # Desktop Post-install

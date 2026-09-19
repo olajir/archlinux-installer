@@ -12,6 +12,7 @@ set -e
 ################################################################################
 
 . config-variables.sh
+setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 
 ################################################################################
 # Post-install
@@ -70,6 +71,7 @@ useradd -m -G wheel -s /bin/bash "${username}"
 echo -e "${username} ALL=(ALL) ALL" > /etc/sudoers.d/${username}
 
 # Change password for root & ${username}
+set +x
 if [[ "${install_mode}" == "auto" ]] ; then
     echo "root:${root_default_password}" | chpasswd
     echo "${username}:${username_default_password}" | chpasswd
@@ -79,6 +81,7 @@ else
     echo -e "Change password for user ${Y}${username}${W} :"
     passwd "${username}"
 fi
+set -x
 
 # Install bootloader and all necessary packages
 # https://wiki.archlinux.org/title/Systemd-boot
@@ -124,7 +127,7 @@ Exec = /usr/bin/bootctl update" > /etc/pacman.d/hooks/100-systemd-boot.hook
 
 if [[ "${install_type}" == "desktop" ]] ; then
     echo -e "[${B}INFO${W}] Desktop specific post-install"
-    bash ./archlinux-postinstall-desktop.sh
+    INSTALLER_LOGGING_TEE=1 INSTALLER_LOGFILE="${INSTALLER_LOGFILE}" bash ./archlinux-postinstall-desktop.sh
 else
     echo -e "[${B}INFO${W}] Post-install complete!"
     echo -e "[${B}INFO${W}] Type ${Y}CTRL+D${W} and ${Y}reboot${W} to reboot in Arch!"

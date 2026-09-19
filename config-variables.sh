@@ -103,3 +103,83 @@ declare -a aur_packages=(
     "slack-desktop"
     "visual-studio-code-bin"
 )
+
+################################################################################
+# Logging
+################################################################################
+
+installer_log_name="archlinux-installer.log"
+installer_log_live="/tmp/${installer_log_name}"
+installer_log_installed="/var/log/${installer_log_name}"
+
+log_info() {
+    echo -e "[${B}INFO${W}] $*"
+}
+
+log_error() {
+    echo -e "[${R}ERROR${W}] $*"
+}
+
+log_step() {
+    echo -e "[${B}INFO${W}] ===== $* ====="
+}
+
+_installer_on_error() {
+    local exit_code=$?
+    set +x
+    log_error "Command failed (exit ${exit_code}) at ${BASH_SOURCE[1]:-${0}}:${BASH_LINENO[0]}"
+    log_error "Failed command: ${BASH_COMMAND}"
+    log_error "Log file: ${INSTALLER_LOGFILE:-${installer_log_live}}"
+    persist_installer_log
+}
+
+persist_installer_log() {
+    local dest_root="${1:-}"
+    local src="${INSTALLER_LOGFILE:-${installer_log_live}}"
+
+    sync || true
+
+    if [[ -z "${dest_root}" ]]; then
+        # Live ISO with target root mounted; never mkdir /mnt from inside chroot.
+        if [[ -d /mnt/boot ]]; then
+            dest_root="/mnt"
+        else
+            return 0
+        fi
+    fi
+
+    local dest="${dest_root}/var/log/${installer_log_name}"
+    mkdir -p "${dest_root}/var/log" || return 0
+    [[ -f "${src}" ]] || return 0
+    [[ "${src}" == "${dest}" ]] && return 0
+
+    if [[ ! -f "${dest}" ]]; then
+        cp -f "${src}" "${dest}" 2>/dev/null || true
+    else
+        cp -f "${src}" "${dest}.stdout" 2>/dev/null || true
+    fi
+}
+
+# Capture stdout/stderr on screen + log, and bash xtrace in the log only.
+setup_logging() {
+    local logfile="${1:-${INSTALLER_LOGFILE:-${installer_log_live}}}"
+
+    mkdir -p "$(dirname "${logfile}")"
+    touch "${logfile}"
+    export INSTALLER_LOGFILE="${logfile}"
+
+    PS4='+ $(date "+%F %T") ${BASH_SOURCE##*/}:${LINENO} ${FUNCNAME[0]:-main} | '
+    export PS4
+    exec 3>>"${logfile}"
+    export BASH_XTRACEFD=3
+    set -x
+    set -E
+
+    if [[ "${INSTALLER_LOGGING_TEE:-0}" != "1" ]]; then
+        exec > >(tee -a "${logfile}") 2>&1
+        export INSTALLER_LOGGING_TEE=1
+    fi
+
+    trap '_installer_on_error' ERR
+    log_info "Logging to ${logfile} (xtrace in log file only)"
+}
