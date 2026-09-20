@@ -33,6 +33,7 @@ echo -e "[${B}INFO${W}] Configure system localization"
 ln -sf /usr/share/zoneinfo/"${timezone}" /etc/localtime
 hwclock --systohc
 sed -i "s|^#${locale}.UTF-8|${locale}.UTF-8|" /etc/locale.gen
+sed -i "s|^#en_US.UTF-8|en_US.UTF-8|" /etc/locale.gen
 locale-gen
 echo "LANG=${locale}.UTF-8" > /etc/locale.conf
 echo "KEYMAP=${keymap}" > /etc/vconsole.conf

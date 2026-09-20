@@ -68,6 +68,7 @@ declare -a default_packages=(
     "linux-headers"
     "broadcom-wl-dkms"
     "wireless_tools"
+    "tmux"
 )
 
 ################################################################################
