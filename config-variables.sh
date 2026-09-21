@@ -48,13 +48,11 @@ username="ola"
 username_default_password="0laskol@"
 root_default_password="0lask0l@"
 
-# A1398: no acpi_osi=* — Darwin blocks S3 resume, !Darwin breaks SMC (kbd backlight).
-# intel_iommu=off: IOMMU remap after S3 hangs many Apple Intel machines.
-# nouveau.modeset=0: 11,3 dGPU left powered prevents resume; use iGPU only.
-# Do not set mem_sleep_default=deep or s2idle: neither resumes this panel.
-# No acpi_backlight=*: vendor emptied sysfs; native still has no intel_backlight
-# on this panel. Blanking is GNOME ScreenSaver (gdbus), not sysfs PWM.
-kernel_extra_params='intel_iommu=off i915.enable_psr=0 i915.enable_dc=0 nouveau.modeset=0 hid_apple.fnmode=1'
+# MacBookPro11,3: Ubuntu 26.04 / Linux 7.0.14 enters and leaves S3 with a stock
+# cmdline (no acpi_osi=, no intel_iommu=off, no i915 power quirks). The kernel
+# enables _OSI("Darwin") from DMI and keeps VT-d on. The panel is the GK107 via
+# nouveau; i915 never links eDP. Do not force the iGPU or pick a sleep mode.
+kernel_extra_params='hid_apple.fnmode=1'
 
 # Default packages
 declare -a default_packages=(

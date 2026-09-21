@@ -68,7 +68,6 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable docker
 systemctl enable cups
-systemctl enable macbook-lid-monitor
 
 # Set Gnome default favorites apps
 mkdir -p /etc/dconf/profile
