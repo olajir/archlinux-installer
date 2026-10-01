@@ -48,11 +48,9 @@ username="ola"
 username_default_password="0laskol@"
 root_default_password="0lask0l@"
 
-# MacBookPro11,3: Ubuntu 26.04 / Linux 7.0.14 enters and leaves S3 with a stock
-# cmdline (no acpi_osi=, no intel_iommu=off, no i915 power quirks). The kernel
-# enables _OSI("Darwin") from DMI and keeps VT-d on. The panel is the GK107 via
-# nouveau; i915 never links eDP. Do not force the iGPU or pick a sleep mode.
-kernel_extra_params='hid_apple.fnmode=1'
+# A1398: PCI root port 00:1c.0 has no downstream device. ASPM/AER on that
+# empty port hangs S3. hid_apple.fnmode=2 = F-keys by default (Fn for media).
+kernel_extra_params='hid_apple.fnmode=2 pcie_aspm=off pci=noaer'
 
 # Default packages
 declare -a default_packages=(
@@ -75,7 +73,7 @@ declare -a default_packages=(
 
 # Gnome favorite apps
 # Can be found in /usr/share/applications/
-favorite_apps="['org.gnome.Terminal.desktop', 'nautilus.desktop', 'brave-browser.desktop', 'vivaldi-stable.desktop', 'firefox.desktop', 'visual-studio-code.desktop', 'notion-app.desktop', 'spotify.desktop', 'slack.desktop', 'discord.desktop', 'scummvm.desktop']"
+favorite_apps="['org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'spotify.desktop']"
 
 # Desktop specific packages
 declare -a desktop_packages=(
@@ -88,7 +86,6 @@ declare -a desktop_packages=(
     "github-cli"
     "gnome"
     "gparted"
-    "acpid"
     "networkmanager"
     "power-profiles-daemon"
     "unrar"
@@ -103,6 +100,7 @@ declare -a desktop_packages=(
 
 # AUR packages
 declare -a aur_packages=(
+    "mbpfan"
     "spotify"
     "google-chrome"
 )

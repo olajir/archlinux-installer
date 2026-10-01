@@ -18,11 +18,9 @@ setup_logging "${INSTALLER_LOGFILE:-${installer_log_installed}}"
 # Desktop Post-install
 ################################################################################
 
-
-# Install all packages 
+# Install all packages
 echo -e "[${B}INFO${W}] Install desktop ${Y}pacman${W} packages"
-pacman -Sy --noconfirm --needed --color auto  "${desktop_packages[@]}"
-
+pacman -Sy --noconfirm --needed --color auto "${desktop_packages[@]}"
 
 # Install yay
 echo -e "[${B}INFO${W}] Install ${Y}yay${W}"
@@ -68,6 +66,7 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable docker
 systemctl enable cups
+systemctl enable mbpfan.service
 
 # Set Gnome default favorites apps
 mkdir -p /etc/dconf/profile
@@ -85,11 +84,6 @@ sources = [('xkb', '${xkb_layout}')]
 
 [org/gnome/desktop/interface]
 clock-format = '24h'
-
-[org/gnome/settings-daemon/plugins/power]
-sleep-inactive-ac-type = 'blank'
-sleep-inactive-battery-type = 'blank'
-power-button-action = 'interactive'
 " > /etc/dconf/db/local.d/00-favorite-apps
 dconf update
 

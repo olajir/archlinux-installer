@@ -64,7 +64,7 @@ i915
 coretemp
 EOF
 cat > /etc/modprobe.d/hid-apple.conf << 'EOF'
-options hid_apple fnmode=1 iso_layout=1
+options hid_apple fnmode=2 iso_layout=1
 EOF
 # Panel is GK107 via nouveau. Keep the proprietary driver from binding.
 cat > /etc/modprobe.d/apple-discrete-gpu.conf << 'EOF'
@@ -77,11 +77,6 @@ EOF
 cat > /etc/udev/rules.d/90-smc-kbd-backlight.rules << 'EOF'
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="smc::kbd_backlight", ATTR{brightness}="128"
 EOF
-
-# GNOME suspend is stock systemd (deep S3). Ubuntu 7.0 resumes this machine
-# with nouveau left bound; powering the dGPU off or locking the lid instead
-# of suspending is what left the panel black.
-mkdir -p /var/log/journal
 
 # Configure mkinitcpio hooks
 echo -e "[${B}INFO${W}] Generate mkinitcpio hooks"
