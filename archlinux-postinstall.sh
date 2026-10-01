@@ -61,6 +61,7 @@ hid_apple
 apple-gmux
 nouveau
 i915
+coretemp
 EOF
 cat > /etc/modprobe.d/hid-apple.conf << 'EOF'
 options hid_apple fnmode=1 iso_layout=1
@@ -120,7 +121,7 @@ set -x
 echo -e "[${B}INFO${W}] Install & configure bootloader"
 bootctl install
 
-echo "default arch.conf
+echo "default arch
 timeout 8
 editor 1
 auto-firmware 0" > /boot/loader/loader.conf
